@@ -323,7 +323,12 @@ impl<'a, 'dir, C: Colours> FileName<'a, 'dir, C> {
             let painted = good.paint(string);
 
             let adjusted_filename = if let EmbedHyperlinks::On = self.options.embed_hyperlinks {
-                ANSIString::from(format!("\x1B]8;;{}\x1B\x5C{}\x1B]8;;\x1B\x5C", self.file.path.display(), painted))
+                #[cfg(target_os = "windows")]
+                let link = format!("file://{}", std::fs::canonicalize(&self.file.path).unwrap().display().to_string().replace(r"\\?\", ""));
+
+                #[cfg(not(target_os = "windows"))]
+                let link = format!("{}", self.file.path.display());
+                ANSIString::from(format!("\x1B]8;;{}\x1B\x5C{}\x1B]8;;\x1B\x5C", link, painted))
             } else {
                 painted
             };
