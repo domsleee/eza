@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use ansi_term::{ANSIString, Style};
 
@@ -323,12 +323,11 @@ impl<'a, 'dir, C: Colours> FileName<'a, 'dir, C> {
             let painted = good.paint(string);
 
             let adjusted_filename = if let EmbedHyperlinks::On = self.options.embed_hyperlinks {
-                #[cfg(target_os = "windows")]
-                let link = format!("file://{}", std::fs::canonicalize(&self.file.path).unwrap().display().to_string().replace(r"\\?\", ""));
-
-                #[cfg(not(target_os = "windows"))]
-                let link = format!("{}", self.file.path.display());
-                ANSIString::from(format!("\x1B]8;;{}\x1B\x5C{}\x1B]8;;\x1B\x5C", link, painted))
+                if let Ok(hyperlink) = get_hyperlink(&self.file.path) {
+                    ANSIString::from(format!("\x1B]8;;{}\x1B\x5C{}\x1B]8;;\x1B\x5C", hyperlink, painted))
+                } else {
+                    painted
+                }
             } else {
                 painted
             };
@@ -400,6 +399,18 @@ impl<'a, 'dir, C: Colours> FileName<'a, 'dir, C> {
     }
 }
 
+
+#[cfg(not(target_os = "windows"))]
+fn get_hyperlink(path: &PathBuf) -> std::io::Result<String> {
+    Ok(format!("{}", self.file.path.display()))
+}
+
+#[cfg(target_os = "windows")]
+fn get_hyperlink(path: &PathBuf) -> std::io::Result<String> {
+    let canonical_path = std::fs::canonicalize(&path)?;
+    let link = format!("file://{}", canonical_path.display().to_string().replace(r"\\?\", ""));
+    Ok(link)
+}
 
 /// The set of colours that are needed to paint a file name.
 pub trait Colours: FiletypeColours {
